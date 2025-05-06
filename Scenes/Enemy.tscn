@@ -1,0 +1,27 @@
+[gd_scene load_steps=2 format=3 uid="uid://t4jy3amrhg28"]
+
+[ext_resource type="Script" uid="uid://be8pov1me11hp" path="res://Scripts/Enemy.gd" id="1_m1htj"]
+
+[node name="EnemyNode" type="Control"]
+custom_minimum_size = Vector2(128, 192)
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_m1htj")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_right = 128.0
+offset_bottom = 192.0
+
+[node name="HealthLabel" type="Label" parent="."]
+layout_mode = 0
+offset_top = 39.0
+offset_right = 128.0
+offset_bottom = 62.0
+text = "Health cock"
+
+[node name="EnemyNameLabel" type="Label" parent="."]
+layout_mode = 0
+offset_right = 128.0
+offset_bottom = 23.0
+text = "Name"

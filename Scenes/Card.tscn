@@ -1,0 +1,93 @@
+[gd_scene load_steps=7 format=3 uid="uid://flyrj3r0ikwh"]
+
+[ext_resource type="Script" uid="uid://ctibw1jbyykkl" path="res://Scripts/Card.gd" id="1_pnb5n"]
+[ext_resource type="Texture2D" uid="uid://ddtpigfme6mmd" path="res://Resources/Images/cards/flame_imp.png" id="2_3p273"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_h8wm0"]
+shadow_size = 2
+shadow_color = Color(0, 0, 0, 0.831373)
+
+[sub_resource type="LabelSettings" id="LabelSettings_3m7nw"]
+shadow_size = 2
+shadow_color = Color(0, 0, 0, 0.85098)
+
+[sub_resource type="LabelSettings" id="LabelSettings_pnb5n"]
+font_size = 12
+font_color = Color(0, 0, 0, 1)
+outline_color = Color(0, 0, 0, 1)
+shadow_size = 2
+shadow_color = Color(0.446777, 0.446777, 0.446777, 0.721569)
+
+[sub_resource type="LabelSettings" id="LabelSettings_3p273"]
+font_size = 12
+outline_color = Color(0.162066, 0.162066, 0.162066, 1)
+shadow_size = 2
+shadow_color = Color(0, 0, 0, 0.607843)
+
+[node name="Card" type="Control"]
+custom_minimum_size = Vector2(200, 300)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 128.0
+offset_bottom = 192.0
+script = ExtResource("1_pnb5n")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_right = 128.0
+offset_bottom = 192.0
+
+[node name="VBoxContainer" type="Control" parent="."]
+custom_minimum_size = Vector2(128, 192)
+anchors_preset = 0
+
+[node name="CardNameLabel" type="Label" parent="VBoxContainer"]
+z_index = 1
+layout_mode = 2
+offset_left = -1.0
+offset_right = 102.0
+offset_bottom = 31.0
+text = "Card Name"
+label_settings = SubResource("LabelSettings_h8wm0")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CostLabel" type="Label" parent="VBoxContainer"]
+z_index = 1
+layout_mode = 2
+offset_left = 110.0
+offset_top = 2.0
+offset_right = 120.0
+offset_bottom = 25.0
+text = "0"
+label_settings = SubResource("LabelSettings_3m7nw")
+
+[node name="CardImage" type="TextureRect" parent="VBoxContainer"]
+layout_mode = 2
+offset_right = 128.0
+offset_bottom = 192.0
+size_flags_vertical = 3
+texture = ExtResource("2_3p273")
+stretch_mode = 3
+
+[node name="RarityLabel" type="Label" parent="VBoxContainer"]
+z_index = 1
+layout_mode = 2
+offset_left = 3.0
+offset_top = 95.0
+offset_right = 125.0
+offset_bottom = 112.0
+text = "TEXT"
+label_settings = SubResource("LabelSettings_pnb5n")
+vertical_alignment = 2
+
+[node name="DescriptionLabel" type="Label" parent="VBoxContainer"]
+z_index = 1
+layout_mode = 2
+offset_left = 2.0
+offset_top = 114.0
+offset_right = 125.0
+offset_bottom = 190.0
+text = "LIPO"
+label_settings = SubResource("LabelSettings_3p273")
+autowrap_mode = 3

@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3 uid="uid://0m0vkyoqpp46"]
+
+[ext_resource type="Script" uid="uid://dxy3aa2uk8gk1" path="res://Scripts/Main.gd" id="1_r150o"]
+[ext_resource type="PackedScene" uid="uid://t4jy3amrhg28" path="res://Scenes/Enemy.tscn" id="2_idj7w"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_r150o")
+
+[node name="CardContainer" type="HBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 128.0
+offset_bottom = 192.0
+
+[node name="EnemyNode" parent="." instance=ExtResource("2_idj7w")]
+offset_left = 160.0
+offset_top = 1.0
+offset_right = 288.0
+offset_bottom = 193.0
