@@ -29,6 +29,13 @@ var tooltip_timer: Timer
 var tooltip_popup: Control
 var tooltip_delay: float = 0.5
 
+# Prevent infinite recursion
+var _applying_rarity_styling: bool = false
+var _updating_affordability: bool = false
+var _updating_display: bool = false
+var _last_style_update_frame: int = -1
+var _global_update_lock: bool = false
+
 func _ready():
 	original_scale = scale
 	original_position = position
@@ -126,6 +133,18 @@ func start_uncommon_glow():
 
 func _on_mouse_entered():
 	print("Card mouse entered: ", card_name)
+	
+	# Check if turn is executing or mouse input is disabled
+	var main_scene = get_tree().current_scene
+	if main_scene && "is_executing_turn" in main_scene && main_scene.is_executing_turn:
+		print("⛔ Hover blocked - turn is executing")
+		return
+		
+	# Also check if mouse input is disabled
+	if mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		print("⛔ Hover blocked - mouse input disabled")
+		return
+	
 	is_hovered = true
 	
 	# Make hover effect more visible for debugging
@@ -150,6 +169,18 @@ func _on_mouse_entered():
 
 func _on_mouse_exited():
 	print("Card mouse exited: ", card_name)
+	
+	# Check if turn is executing or mouse input is disabled
+	var main_scene = get_tree().current_scene
+	if main_scene && "is_executing_turn" in main_scene && main_scene.is_executing_turn:
+		print("⛔ Exit hover blocked - turn is executing")
+		return
+		
+	# Also check if mouse input is disabled
+	if mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		print("⛔ Exit hover blocked - mouse input disabled")
+		return
+	
 	is_hovered = false
 	
 	var tween = create_tween()
@@ -173,6 +204,13 @@ func _on_mouse_exited():
 	hide_tooltip()
 
 func update_display():
+	# Prevent infinite recursion
+	if _updating_display:
+		print("⚠️ Prevented infinite recursion in update_display for:", card_name)
+		return
+	
+	_updating_display = true
+	
 	if $VBoxContainer/HeaderContainer/CardNameLabel:
 		$VBoxContainer/HeaderContainer/CardNameLabel.text = card_name
 	if $VBoxContainer/HeaderContainer/CostPanel/CostLabel:
@@ -189,8 +227,11 @@ func update_display():
 	# Update stat displays
 	update_stat_displays()
 	
-	# Enhanced visual styling based on rarity
-	apply_rarity_styling()
+	# Enhanced visual styling based on rarity (DEFERRED to prevent recursion)
+	call_deferred("apply_rarity_styling")
+	
+	# Reset guard flag
+	_updating_display = false
 
 func update_stat_displays():
 	"""Update health and attack stat displays"""
@@ -271,6 +312,39 @@ func update_stat_displays():
 			stats_container.visible = false
 
 func apply_rarity_styling():
+	# ULTIMATE RECURSION PREVENTION - Multiple layers of protection
+	var current_frame = Engine.get_process_frames()
+	
+	# Layer 1: Global update lock
+	if _global_update_lock:
+		print("⚠️ [LOCK] Global update lock active for:", card_name)
+		return
+	
+	# Layer 2: Function-specific guard
+	if _applying_rarity_styling:
+		print("⚠️ [GUARD] Already applying rarity styling for:", card_name)
+		return
+	
+	# Layer 3: Frame-based protection
+	if _last_style_update_frame == current_frame:
+		print("⚠️ [FRAME] Multiple style updates in same frame blocked for:", card_name)
+		return
+	
+	# Layer 4: Stack depth check (simple recursion counter)
+	var stack_info = get_stack()
+	var apply_rarity_calls = 0
+	for frame in stack_info:
+		if frame.function == "apply_rarity_styling":
+			apply_rarity_calls += 1
+			if apply_rarity_calls > 1:
+				print("⚠️ [STACK] Stack recursion detected for:", card_name)
+				return
+	
+	# All guards passed - proceed with styling
+	_global_update_lock = true
+	_applying_rarity_styling = true
+	_last_style_update_frame = current_frame
+	
 	if $VBoxContainer/HeaderContainer/CostPanel:
 		var cost_panel = $VBoxContainer/HeaderContainer/CostPanel
 		var style_box = cost_panel.get_theme_stylebox("panel").duplicate()
@@ -294,64 +368,95 @@ func apply_rarity_styling():
 		
 		cost_panel.add_theme_stylebox_override("panel", style_box)
 	
-	# Update main card border based on rarity
+	# Update main card border based on rarity (deferred to prevent recursion)
 	if $Panel:
-		var main_style = $Panel.get_theme_stylebox("panel").duplicate()
-		
-		match rarity.to_lower():
-			"common":
-				main_style.border_color = Color(0.4, 0.4, 0.4, 1)
-				main_style.border_width_left = 2
-				main_style.border_width_right = 2
-				main_style.border_width_top = 2
-				main_style.border_width_bottom = 2
-			"uncommon":
-				main_style.border_color = Color(0.2, 0.8, 0.2, 1)
-				main_style.border_width_left = 3
-				main_style.border_width_right = 3
-				main_style.border_width_top = 3
-				main_style.border_width_bottom = 3
-			"rare":
-				main_style.border_color = Color(0.2, 0.5, 1.0, 1)
-				main_style.border_width_left = 4
-				main_style.border_width_right = 4
-				main_style.border_width_top = 4
-				main_style.border_width_bottom = 4
-			"epic":
-				main_style.border_color = Color(0.8, 0.2, 1.0, 1)
-				main_style.border_width_left = 5
-				main_style.border_width_right = 5
-				main_style.border_width_top = 5
-				main_style.border_width_bottom = 5
-			"legendary":
-				main_style.border_color = Color(1.0, 0.8, 0.2, 1)
-				main_style.border_width_left = 6
-				main_style.border_width_right = 6
-				main_style.border_width_top = 6
-				main_style.border_width_bottom = 6
-		
-		$Panel.add_theme_stylebox_override("panel", main_style)
+		call_deferred("_apply_main_border_styling")
 	
-	# Update rarity label color
+	# Update rarity label color (also deferred)
 	if $VBoxContainer/RarityLabel:
-		var rarity_label = $VBoxContainer/RarityLabel
-		match rarity.to_lower():
-			"common":
-				rarity_label.modulate = Color(0.6, 0.6, 0.6, 1)
-			"uncommon":
-				rarity_label.modulate = Color(0.2, 0.8, 0.2, 1)
-			"rare":
-				rarity_label.modulate = Color(0.2, 0.5, 1.0, 1)
-			"epic":
-				rarity_label.modulate = Color(0.8, 0.2, 1.0, 1)
-			"legendary":
-				rarity_label.modulate = Color(1.0, 0.8, 0.2, 1)
+		call_deferred("_apply_rarity_label_styling")
+	
+	# Reset ALL guard flags
+	_applying_rarity_styling = false
+	_global_update_lock = false
+
+func _apply_main_border_styling():
+	"""Apply main card border styling (deferred to prevent recursion)"""
+	if not $Panel:
+		return
+		
+	var main_style = $Panel.get_theme_stylebox("panel").duplicate()
+	
+	match rarity.to_lower():
+		"common":
+			main_style.border_color = Color(0.4, 0.4, 0.4, 1)
+			main_style.border_width_left = 2
+			main_style.border_width_right = 2
+			main_style.border_width_top = 2
+			main_style.border_width_bottom = 2
+		"uncommon":
+			main_style.border_color = Color(0.2, 0.8, 0.2, 1)
+			main_style.border_width_left = 3
+			main_style.border_width_right = 3
+			main_style.border_width_top = 3
+			main_style.border_width_bottom = 3
+		"rare":
+			main_style.border_color = Color(0.2, 0.5, 1.0, 1)
+			main_style.border_width_left = 4
+			main_style.border_width_right = 4
+			main_style.border_width_top = 4
+			main_style.border_width_bottom = 4
+		"epic":
+			main_style.border_color = Color(0.8, 0.2, 1.0, 1)
+			main_style.border_width_left = 5
+			main_style.border_width_right = 5
+			main_style.border_width_top = 5
+			main_style.border_width_bottom = 5
+		"legendary":
+			main_style.border_color = Color(1.0, 0.8, 0.2, 1)
+			main_style.border_width_left = 6
+			main_style.border_width_right = 6
+			main_style.border_width_top = 6
+			main_style.border_width_bottom = 6
+	
+	$Panel.add_theme_stylebox_override("panel", main_style)
+
+func _apply_rarity_label_styling():
+	"""Apply rarity label color styling (deferred to prevent recursion)"""
+	if not $VBoxContainer/RarityLabel:
+		return
+		
+	var rarity_label = $VBoxContainer/RarityLabel
+	match rarity.to_lower():
+		"common":
+			rarity_label.modulate = Color(0.6, 0.6, 0.6, 1)
+		"uncommon":
+			rarity_label.modulate = Color(0.2, 0.8, 0.2, 1)
+		"rare":
+			rarity_label.modulate = Color(0.2, 0.5, 1.0, 1)
+		"epic":
+			rarity_label.modulate = Color(0.8, 0.2, 1.0, 1)
+		"legendary":
+			rarity_label.modulate = Color(1.0, 0.8, 0.2, 1)
 
 func _on_gui_input(event):
-	print("🖱️ Card GUI input received:", card_name, "Event:", event)
+	print("🖱️ Card GUI input received:", card_name, "Event type:", event.get_class())
+	
+	# Check if turn is executing or mouse input is disabled - block all interactions
+	var main_scene = get_tree().current_scene
+	if main_scene && "is_executing_turn" in main_scene && main_scene.is_executing_turn:
+		print("⛔ Card interaction blocked - turn is executing")
+		return
+		
+	# Also check if mouse input is disabled
+	if mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		print("⛔ Card interaction blocked - mouse input disabled")
+		return
+	
 	if event is InputEventMouseButton and event.pressed:
+		print("🖱️ Mouse button event detected - Button:", event.button_index, "Pressed:", event.pressed)
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			print("🎯 Card LEFT CLICK detected:", card_name)
+			print("🎯 Card LEFT CLICK detected:", card_name, "- About to emit signal")
 			
 			# Add click feedback before playing
 			var click_tween = create_tween()
@@ -366,11 +471,16 @@ func _on_gui_input(event):
 			expand_tween.tween_property(self, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.1).set_delay(0.1)
 			
 			# Emit signal after click animation
-			expand_tween.tween_callback(func(): emit_signal("card_played", self)).set_delay(0.2)
+			expand_tween.tween_callback(func(): 
+				print("📡 Emitting card_played signal for:", card_name)
+				emit_signal("card_played", self)
+			).set_delay(0.2)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			print("🎯 Card RIGHT CLICK detected:", card_name)
 			# Don't handle right-click here - let it bubble up to Main._input()
 			# This allows Main to handle battlefield card removal
+	else:
+		print("🖱️ Non-click event or not pressed:", event.get_class() if event else "null event")
 
 func play_card(target):
 	if effect_func and effect_func.is_valid():
@@ -645,8 +755,8 @@ func show_selected_for_targeting():
 	print("✨ Card selected for targeting:", card_name)
 
 func hide_selected_for_targeting():
-	# Remove selection visual indicators
-	apply_rarity_styling()  # Reset to normal styling
+	# Remove selection visual indicators (DEFERRED to prevent recursion)
+	call_deferred("apply_rarity_styling")  # Reset to normal styling
 	
 	# Stop any tweens
 	if rarity_tween and rarity_tween.is_valid():
@@ -702,6 +812,50 @@ func clear_target_assignment_display():
 		if child.has_method("get_text") and child.get_text().begins_with("→"):
 			child.queue_free()
 			print("🗑️ Removed target assignment label")
+
+func update_affordability_visual(current_mana: int):
+	"""Update visual appearance based on mana affordability"""
+	# ULTIMATE RECURSION PREVENTION
+	if _global_update_lock:
+		print("⚠️ [LOCK] Global update lock active, skipping affordability update for:", card_name)
+		return
+	
+	if _updating_affordability:
+		print("⚠️ Prevented infinite recursion in update_affordability_visual for:", card_name)
+		return
+	
+	_updating_affordability = true
+	
+	# Don't override execution state visuals
+	var main_scene = get_tree().current_scene
+	if main_scene && "is_executing_turn" in main_scene && main_scene.is_executing_turn:
+		_updating_affordability = false
+		return
+		
+	if current_mana >= cost:
+		# Can afford - normal appearance
+		modulate = Color(1.0, 1.0, 1.0, 1.0)
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		
+		# Restore original cost panel color based on rarity (DEFERRED to prevent recursion)
+		call_deferred("apply_rarity_styling")
+	else:
+		# Can't afford - grayed out appearance
+		modulate = Color(0.6, 0.6, 0.6, 0.8)
+		# Keep mouse filter enabled for tooltips, but visual feedback shows it's unplayable
+		
+		# Update cost panel to red to indicate insufficient mana
+		if $VBoxContainer/HeaderContainer/CostPanel:
+			var cost_panel = $VBoxContainer/HeaderContainer/CostPanel
+			var style_box = cost_panel.get_theme_stylebox("panel")
+			if style_box:
+				var new_style = style_box.duplicate()
+				new_style.bg_color = Color(0.8, 0.3, 0.3, 1.0)  # Red background
+				new_style.border_color = Color(0.6, 0.2, 0.2, 1.0)  # Darker red border
+				cost_panel.add_theme_stylebox_override("panel", new_style)
+	
+	# Reset guard flag
+	_updating_affordability = false
 
 # Creature management functions
 func initialize_creature(health: int, attack: int):
@@ -817,7 +971,7 @@ func show_tooltip():
 	var max_width = 400
 	
 	# Create all labels first to measure their content
-	var labels = []
+	var _labels = []  # Prefix with underscore to indicate intentionally unused
 	var label_texts = []
 	var label_font_sizes = []
 	
@@ -1057,3 +1211,27 @@ func extract_heal_from_description() -> int:
 	
 	# Default fallback
 	return 1
+
+# Add debug function to manually test card interactions
+func debug_force_click():
+	"""Debug function to manually trigger a card click for testing"""
+	print("🧪 DEBUG: Force clicking card:", card_name)
+	print("🧪 Current mouse_filter:", mouse_filter)
+	print("🧪 Current modulate:", modulate)
+	print("🧪 Card type:", card_type, "Cost:", cost)
+	
+	# Check main scene state
+	var main_scene = get_tree().current_scene
+	if main_scene && "is_executing_turn" in main_scene:
+		print("🧪 Main scene is_executing_turn:", main_scene.is_executing_turn)
+	
+	# Check signal connections
+	var connections = card_played.get_connections()
+	print("🧪 Signal connections:", connections.size())
+	for conn in connections:
+		print("  - Connected to:", conn.callable.get_object(), "Method:", conn.callable.get_method())
+	
+	# Force emit the signal
+	print("🧪 Force emitting card_played signal...")
+	emit_signal("card_played", self)
+	print("🧪 Signal emitted successfully")

@@ -1,5 +1,16 @@
 extends Control
 
+# Global variables for targeting system
+var selected_card: Card = null
+var targeting_line: Line2D = null
+var card_targets = {}  # Dictionary to store card -> enemy assignments
+var is_executing_turn: bool = false  # Track if turn is currently executing
+
+# Mana system variables
+var current_mana: int = 10
+var max_mana: int = 10
+var mana_per_turn: int = 1
+
 func _ready():
 	show_starting_cards()
 	setup_enemies()
@@ -10,6 +21,41 @@ func _ready():
 	
 	# Initialize UI state
 	update_battlefield_counter()
+	update_mana_display()
+
+func update_mana_display():
+	"""Update the mana display in the UI"""
+	var mana_label = $MainLayout/HandZone/ManaLabel
+	if mana_label:
+		mana_label.text = "Mana: %d/%d" % [current_mana, max_mana]
+		print("🔵 Mana display updated: %d/%d" % [current_mana, max_mana])
+		
+	# Update card affordability visuals
+	update_card_affordability_visuals()
+
+func update_card_affordability_visuals():
+	"""Update visual state of cards based on mana availability"""
+	var hand_container = $MainLayout/HandZone/CardContainer
+	var hand_cards = hand_container.get_children()
+	
+	for card in hand_cards:
+		if card.has_method("update_affordability_visual"):
+			card.update_affordability_visual(current_mana)
+		else:
+			# Fallback: Apply visual changes directly
+			if current_mana >= card.cost:
+				# Can afford - normal appearance
+				if not is_executing_turn:  # Don't override execution state
+					card.modulate = Color(1.0, 1.0, 1.0, 1.0)
+					card.mouse_filter = Control.MOUSE_FILTER_PASS
+			else:
+				# Can't afford - grayed out appearance
+				card.modulate = Color(0.6, 0.6, 0.6, 0.8)
+				# Don't disable mouse filter completely - still allow hover for tooltips
+				# The mana check in _on_card_played will prevent actual usage
+		
+	# Update card affordability visuals
+	update_card_affordability_visuals()
 
 func setup_enemies():
 	# Setup multiple enemies with different names and stats
@@ -37,12 +83,6 @@ func setup_enemies():
 				print("❌ Failed to connect enemy gui_input for:", enemy.enemy_name)
 		else:
 			print("⚠️ Enemy gui_input already connected for:", enemy.enemy_name)
-
-# Global variables for targeting system
-var selected_card: Card = null
-var targeting_line: Line2D = null
-var card_targets = {}  # Dictionary to store card -> enemy assignments
-var is_executing_turn: bool = false  # Track if turn is currently executing
 
 func show_starting_cards():
 	# Create multiple sample cards to show off the hand system with different rarities and types
@@ -150,15 +190,30 @@ func show_starting_cards():
 
 func _on_card_played(card):
 	print("🎴 Card clicked in hand:", card.card_name)
+	print("🔍 DEBUG: Card type:", card.card_type, "Cost:", card.cost, "Current mana:", current_mana)
 	
 	# Don't allow hand interaction during turn execution
 	if is_executing_turn:
 		print("⛔ Hand interaction disabled during turn execution")
 		return
 	
+	# Check mana cost
+	if current_mana < card.cost:
+		print("⛔ Not enough mana! Need %d, have %d" % [card.cost, current_mana])
+		# Add visual feedback for insufficient mana
+		var mana_label = $MainLayout/HandZone/ManaLabel
+		if mana_label:
+			var flash_tween = create_tween()
+			flash_tween.tween_property(mana_label, "modulate", Color(1.5, 0.5, 0.5, 1.0), 0.2)
+			flash_tween.tween_property(mana_label, "modulate", Color(0.3, 0.6, 1.0, 1.0), 0.2)
+		return
+	
 	# Check if this is an instant cast card (healing items only)
 	if card.is_instant_cast():
 		print("⚡ Instant cast card detected:", card.card_name)
+		# Deduct mana before execution
+		current_mana -= card.cost
+		update_mana_display()
 		execute_instant_card(card)
 		return
 	
@@ -174,6 +229,9 @@ func _on_card_played(card):
 		# If the same card is clicked again, move it to battlefield
 		if selected_card == card:
 			print("📥 Moving selected card to battlefield:", card.card_name)
+			# Deduct mana before moving to battlefield
+			current_mana -= card.cost
+			update_mana_display()
 			clear_card_selection()
 			move_card_to_battlefield(card)
 		else:
@@ -188,13 +246,29 @@ func _on_card_played(card):
 
 func select_card_for_targeting(card):
 	"""Select a card for target assignment"""
+	print("🎯 select_card_for_targeting called for:", card.card_name, "Type:", card.card_type)
+	
 	# Don't allow targeting during turn execution
 	if is_executing_turn:
 		print("⛔ Targeting disabled during turn execution")
 		return
+	
+	# Clear any existing targeting line before creating a new one
+	if targeting_line:
+		targeting_line.queue_free()
+		targeting_line = null
+		print("🧹 Cleared existing targeting line before creating new one")
 		
 	selected_card = card
-	card.show_selected_for_targeting()
+	print("✅ Card set as selected_card:", selected_card.card_name)
+	
+	# Check if the card has the required method
+	if card.has_method("show_selected_for_targeting"):
+		card.show_selected_for_targeting()
+		print("✅ show_selected_for_targeting called")
+	else:
+		print("❌ Card missing show_selected_for_targeting method")
+	
 	create_targeting_line()
 	print("💡 Click an enemy to assign target, or click this card again to place it on battlefield")
 
@@ -204,6 +278,12 @@ func select_card_for_spell_targeting(card):
 	if is_executing_turn:
 		print("⛔ Spell targeting disabled during turn execution")
 		return
+	
+	# Clear any existing targeting line before creating a new one
+	if targeting_line:
+		targeting_line.queue_free()
+		targeting_line = null
+		print("🧹 Cleared existing targeting line before creating new one")
 		
 	selected_card = card
 	card.show_selected_for_targeting()
@@ -247,6 +327,10 @@ func end_turn():
 	
 	# Set executing state and disable hand interactions
 	is_executing_turn = true
+	
+	# Force clear all targeting elements (comprehensive cleanup)
+	force_clear_all_targeting()
+	
 	disable_hand_cards_during_execution()
 	
 	# Disable the End Turn button during execution
@@ -276,6 +360,10 @@ func _on_enemy_clicked(enemy: Enemy, event):
 				
 				# Capture the card reference before clearing selection
 				var spell_card = selected_card
+				
+				# Deduct mana for spell execution
+				current_mana -= spell_card.cost
+				update_mana_display()
 				
 				# Show targeting feedback briefly
 				enemy.show_target_selected_effect()
@@ -332,11 +420,53 @@ func clear_card_selection():
 		selected_card.hide_selected_for_targeting()
 		selected_card = null
 	
+	# Clear current targeting line
 	if targeting_line:
 		targeting_line.queue_free()
 		targeting_line = null
+	
+	# Also clear any orphaned targeting lines that might exist
+	var children = get_children()
+	for child in children:
+		if child is Line2D and child != targeting_line:
+			print("🧹 Removing orphaned targeting line")
+			child.queue_free()
+
+func force_clear_all_targeting():
+	"""Force clear all targeting elements - use when turn execution starts"""
+	print("🧹 Force clearing all targeting elements")
+	
+	# Clear card selection
+	if selected_card:
+		selected_card.hide_selected_for_targeting()
+		selected_card = null
+		print("✅ Card selection cleared")
+	
+	# Clear targeting line
+	if targeting_line:
+		targeting_line.queue_free()
+		targeting_line = null
+		print("✅ Targeting line cleared")
+	
+	# Find and remove any orphaned targeting lines
+	var children = get_children()
+	for child in children:
+		if child is Line2D:
+			print("🧹 Removing orphaned Line2D:", child)
+			child.queue_free()
 
 func create_targeting_line():
+	# Don't create targeting lines during turn execution
+	if is_executing_turn:
+		print("⛔ Targeting line creation blocked - turn is executing")
+		return
+	
+	# Clear any existing targeting line before creating a new one
+	if targeting_line:
+		targeting_line.queue_free()
+		targeting_line = null
+		print("🧹 Cleared previous targeting line before creating new one")
+		
 	# Create a line that follows the mouse when a card is selected
 	targeting_line = Line2D.new()
 	targeting_line.width = 3.0
@@ -355,6 +485,26 @@ func _input(event):
 		targeting_line.clear_points()
 		targeting_line.add_point(card_center)
 		targeting_line.add_point(mouse_pos)
+	
+	# Debug key to check card states
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F1:
+		debug_card_interaction()
+	
+	# Test card selection key
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F2:
+		test_card_selection()
+	
+	# Test mouse input on cards
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F3:
+		test_mouse_input_on_cards()
+		
+	# Debug specific card issues
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F4:
+		debug_specific_card_issue()
+		
+	# Fix card interaction issues
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F5:
+		fix_card_interactions()
 	
 	# Right click to cancel card selection or remove battlefield cards
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
@@ -505,6 +655,12 @@ func schedule_turn_completion(total_cards: int):
 		print("✅ Turn execution completed!")
 		is_executing_turn = false  # Reset execution state
 		enable_hand_cards_after_execution()  # Re-enable hand interactions
+		
+		# Regenerate mana at the end of the turn
+		current_mana = min(current_mana + mana_per_turn, max_mana)
+		update_mana_display()
+		print("🔵 Mana regenerated: %d/%d" % [current_mana, max_mana])
+		
 		update_battlefield_counter()  # This will re-enable the button
 		completion_timer.queue_free()
 	)
@@ -629,7 +785,7 @@ func create_ranged_attack_animation(card: Card, target: Enemy):
 		projectile.queue_free()
 	).set_delay(0.6)
 
-func create_support_animation(card: Card, target: Enemy):
+func create_support_animation(card: Card, _target: Enemy):
 	"""Create support/healing animation without projectiles"""
 	print("✨ Creating support animation - magical aura!")
 	
@@ -734,24 +890,6 @@ func create_impact_effect(target: Enemy):
 	
 	# Screen shake effect for impact
 	create_screen_shake()
-
-func create_screen_shake():
-	"""Create screen shake effect for impact feedback"""
-	var main_container = $MainLayout
-	var original_pos = main_container.position
-	var shake_intensity = 4.0  # Reduced from 5.0
-	
-	var shake_tween = create_tween()
-	shake_tween.set_loops(4)  # Reduced from 8 to 4 loops for shorter duration
-	
-	for i in range(4):
-		shake_tween.tween_property(main_container, "position", 
-			original_pos + Vector2(randf_range(-shake_intensity, shake_intensity), 
-			randf_range(-shake_intensity, shake_intensity)), 0.04)  # Slightly faster at 0.04s
-		shake_intensity *= 0.7  # Decay intensity each loop (reduced from 0.8)
-	
-	# Return to original position
-	shake_tween.tween_property(main_container, "position", original_pos, 0.04)
 
 func create_spell_effect_animation(card: Card, target: Enemy):
 	"""Create unique spell effect animations based on spell type"""
@@ -1326,6 +1464,8 @@ func move_card_back_to_hand(card):
 
 func disable_hand_cards_during_execution():
 	"""Disable hand card interactions during turn execution"""
+	print("⛔ Disabling all card interactions during turn execution")
+	
 	var hand_container = $MainLayout/HandZone/CardContainer
 	var hand_cards = hand_container.get_children()
 	
@@ -1333,11 +1473,25 @@ func disable_hand_cards_during_execution():
 		# Disable mouse input and give visual feedback
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.modulate = Color(0.5, 0.5, 0.5, 0.7)  # Grayed out appearance
+		print("🔒 Hand card disabled:", card.card_name)
+	
+	# Also disable battlefield cards during execution
+	var battlefield_container = $MainLayout/BattlefieldZone/PlayedCardsContainer
+	if battlefield_container:
+		var battlefield_cards = battlefield_container.get_children()
 		
-	print("⛔ Hand cards disabled during execution")
+		for card in battlefield_cards:
+			# Disable mouse input and give visual feedback
+			card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			card.modulate = Color(0.5, 0.5, 0.5, 0.7)  # Grayed out appearance
+			print("🔒 Battlefield card disabled:", card.card_name)
+		
+	print("⛔ All cards disabled during execution")
 
 func enable_hand_cards_after_execution():
 	"""Re-enable hand card interactions after turn execution"""
+	print("✅ Re-enabling all card interactions after turn execution")
+	
 	var hand_container = $MainLayout/HandZone/CardContainer
 	var hand_cards = hand_container.get_children()
 	
@@ -1345,8 +1499,23 @@ func enable_hand_cards_after_execution():
 		# Re-enable mouse input and restore appearance
 		card.mouse_filter = Control.MOUSE_FILTER_PASS
 		card.modulate = Color(1.0, 1.0, 1.0, 1.0)  # Normal appearance
+		print("🔓 Hand card enabled:", card.card_name)
+	
+	# Also re-enable battlefield cards after execution
+	var battlefield_container = $MainLayout/BattlefieldZone/PlayedCardsContainer
+	if battlefield_container:
+		var battlefield_cards = battlefield_container.get_children()
 		
-	print("✅ Hand cards re-enabled after execution")
+		for card in battlefield_cards:
+			# Re-enable mouse input and restore appearance
+			card.mouse_filter = Control.MOUSE_FILTER_PASS
+			card.modulate = Color(1.0, 1.0, 1.0, 1.0)  # Normal appearance
+			print("🔓 Battlefield card enabled:", card.card_name)
+		
+	print("✅ All cards re-enabled after execution")
+	
+	# Update affordability visuals after re-enabling
+	update_card_affordability_visuals()
 
 func execute_instant_card(card):
 	"""Execute spells and items immediately without going to battlefield"""
@@ -1530,3 +1699,197 @@ func get_card_target(card):
 			print("🎲 Using random target:", target.enemy_name)
 	
 	return target
+
+func create_screen_shake():
+	"""Create a screen shake effect for dramatic impact"""
+	print("💥 Creating screen shake effect")
+	
+	# Create a camera shake effect by slightly moving the main control node
+	var original_pos = position
+	var shake_tween = create_tween()
+	shake_tween.set_parallel(true)
+	
+	# Quick shake sequence
+	for i in range(8):
+		var shake_offset = Vector2(randf_range(-3, 3), randf_range(-3, 3))
+		shake_tween.tween_property(self, "position", original_pos + shake_offset, 0.05).set_delay(i * 0.05)
+	
+	# Return to original position
+	shake_tween.tween_property(self, "position", original_pos, 0.1).set_delay(0.4)
+
+func debug_card_interaction(card_name: String = ""):
+	"""Debug function to check card interaction state"""
+	print("=== CARD INTERACTION DEBUG ===")
+	print("is_executing_turn:", is_executing_turn)
+	print("selected_card:", selected_card.card_name if selected_card else "None")
+	print("targeting_line exists:", targeting_line != null)
+	
+	var hand_container = $MainLayout/HandZone/CardContainer
+	var hand_cards = hand_container.get_children()
+	
+	for card in hand_cards:
+		if card_name == "" or card.card_name == card_name:
+			print("Card:", card.card_name)
+			print("  - mouse_filter:", card.mouse_filter)
+			print("  - modulate:", card.modulate)
+			print("  - card_type:", card.card_type)
+			print("  - cost:", card.cost)
+			print("  - is_instant_cast:", card.is_instant_cast())
+			print("  - signals connected:", card.card_played.get_connections().size() > 0)
+	
+	print("=== END DEBUG ===")
+
+func test_card_selection():
+	"""Test function to manually trigger card selection"""
+	print("🧪 TESTING CARD SELECTION")
+	var hand_container = $MainLayout/HandZone/CardContainer
+	var hand_cards = hand_container.get_children()
+	
+	print("🧪 Total cards in hand:", hand_cards.size())
+	
+	for i in range(hand_cards.size()):
+		var card = hand_cards[i]
+		print("🧪 Card", i, ":", card.card_name, "Type:", card.card_type, "Cost:", card.cost)
+		print("  - mouse_filter:", card.mouse_filter)
+		print("  - modulate:", card.modulate)
+		print("  - position:", card.position)
+		print("  - size:", card.size)
+		
+		# Test if the signal is connected
+		var connections = card.card_played.get_connections()
+		print("  - card_played connections:", connections.size())
+		if connections.size() > 0:
+			for conn in connections:
+				print("    - connected to:", conn.callable.get_object(), "method:", conn.callable.get_method())
+	
+	if hand_cards.size() > 0:
+		var test_card = hand_cards[0]  # Test the first card
+		print("🧪 Testing first card:", test_card.card_name)
+		
+		# Manually call the card played function
+		_on_card_played(test_card)
+	else:
+		print("🧪 No cards in hand to test")
+
+func test_mouse_input_on_cards():
+	"""Test if cards are receiving mouse input"""
+	print("🖱️ TESTING MOUSE INPUT ON CARDS")
+	var hand_container = $MainLayout/HandZone/CardContainer
+	var hand_cards = hand_container.get_children()
+	
+	for card in hand_cards:
+		print("🖱️ Card:", card.card_name)
+		print("  - Has mouse input:", card.mouse_filter == Control.MOUSE_FILTER_PASS)
+		print("  - Size:", card.size)
+		print("  - Global position:", card.global_position)
+		print("  - Z-index:", card.z_index)
+		print("  - Visible:", card.visible)
+		print("  - Modulate alpha:", card.modulate.a)
+		
+		# Check if card has proper collision area
+		var rect = Rect2(card.global_position, card.size)
+		print("  - Mouse area rect:", rect)
+
+# Add comprehensive card debugging function
+func debug_specific_card_issue():
+	"""Debug function to identify which specific cards have selection issues"""
+	print("=== DEBUGGING CARD SELECTION ISSUES ===")
+	
+	var hand_container = $MainLayout/HandZone/CardContainer
+	var hand_cards = hand_container.get_children()
+	
+	print("Total cards in hand:", hand_cards.size())
+	
+	for i in range(hand_cards.size()):
+		var card = hand_cards[i]
+		print("\n--- CARD", i, ":", card.card_name, "---")
+		print("  Type:", card.card_type)
+		print("  Cost:", card.cost, "/ Current mana:", current_mana)
+		print("  Mouse filter:", card.mouse_filter)
+		print("  Position:", card.position)
+		print("  Size:", card.size)
+		print("  Global position:", card.global_position)
+		print("  Visible:", card.visible)
+		print("  Modulate:", card.modulate)
+		print("  Z-index:", card.z_index)
+		print("  Has debug_force_click:", card.has_method("debug_force_click"))
+		
+		# Check signal connections
+		var connections = card.card_played.get_connections()
+		print("  Signal connections:", connections.size())
+		if connections.size() > 0:
+			for conn in connections:
+				print("    - Target:", conn.callable.get_object().get_script().get_path() if conn.callable.get_object().get_script() else "No script")
+				print("    - Method:", conn.callable.get_method())
+		else:
+			print("    ❌ NO SIGNAL CONNECTIONS!")
+		
+		# Test if card can be clicked by forcing a click
+		if card.has_method("debug_force_click"):
+			print("  🧪 Testing force click on", card.card_name)
+			card.debug_force_click()
+		
+		# Check for overlapping UI elements
+		var mouse_pos = card.global_position + (card.size / 2)
+		print("  Center mouse position would be:", mouse_pos)
+	
+	print("\n=== GAME STATE ===")
+	print("is_executing_turn:", is_executing_turn)
+	print("selected_card:", selected_card.card_name if selected_card else "None")
+	print("targeting_line exists:", targeting_line != null)
+	
+	print("=== END CARD DEBUGGING ===")
+
+# Add function to fix common card interaction issues
+func fix_card_interactions():
+	"""Attempt to fix common card interaction issues"""
+	print("🔧 FIXING CARD INTERACTIONS...")
+	
+	var hand_container = $MainLayout/HandZone/CardContainer
+	var hand_cards = hand_container.get_children()
+	
+	var fixes_applied = 0
+	
+	for card in hand_cards:
+		print("🔧 Checking card:", card.card_name)
+		
+		# Fix 1: Ensure mouse filter is set correctly
+		if card.mouse_filter != Control.MOUSE_FILTER_PASS:
+			print("  - Fixed mouse_filter (was", card.mouse_filter, ")")
+			card.mouse_filter = Control.MOUSE_FILTER_PASS
+			fixes_applied += 1
+		
+		# Fix 2: Ensure signal is connected
+		var connections = card.card_played.get_connections()
+		if connections.size() == 0:
+			print("  - Reconnecting card_played signal")
+			if card.card_played.connect(_on_card_played) == OK:
+				print("  - Signal reconnected successfully")
+				fixes_applied += 1
+			else:
+				print("  - Failed to reconnect signal")
+		
+		# Fix 3: Reset modulate if it's transparent
+		if card.modulate.a < 1.0:
+			print("  - Fixed transparency (was", card.modulate.a, ")")
+			card.modulate.a = 1.0
+			fixes_applied += 1
+		
+		# Fix 4: Ensure card is visible
+		if not card.visible:
+			print("  - Made card visible")
+			card.visible = true
+			fixes_applied += 1
+		
+		# Fix 5: Reset child mouse filters
+		if card.has_method("setup_mouse_filters"):
+			card.setup_mouse_filters()
+			print("  - Reset child mouse filters")
+			fixes_applied += 1
+	
+	print("🔧 Applied", fixes_applied, "fixes to card interactions")
+	
+	if fixes_applied > 0:
+		print("💡 Try clicking cards again - issues may be resolved!")
+	else:
+		print("💡 No obvious issues found. Problem may be deeper in the code structure.")

@@ -168,6 +168,16 @@ grow_horizontal = 0
 text = "Hand"
 horizontal_alignment = 2
 
+[node name="ManaLabel" type="Label" parent="MainLayout/HandZone"]
+layout_mode = 1
+offset_left = 10.0
+offset_top = 5.0
+offset_right = 150.0
+offset_bottom = 25.0
+theme_override_colors/font_color = Color(0.3, 0.6, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Mana: 10/10"
+
 [node name="CardContainer" type="HBoxContainer" parent="MainLayout/HandZone"]
 layout_mode = 1
 anchors_preset = 15
