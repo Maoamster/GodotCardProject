@@ -1,93 +1,275 @@
-[gd_scene load_steps=7 format=3 uid="uid://flyrj3r0ikwh"]
+[gd_scene load_steps=15 format=3 uid="uid://flyrj3r0ikwh"]
 
 [ext_resource type="Script" uid="uid://ctibw1jbyykkl" path="res://Scripts/Card.gd" id="1_pnb5n"]
 [ext_resource type="Texture2D" uid="uid://ddtpigfme6mmd" path="res://Resources/Images/cards/flame_imp.png" id="2_3p273"]
 
-[sub_resource type="LabelSettings" id="LabelSettings_h8wm0"]
-shadow_size = 2
-shadow_color = Color(0, 0, 0, 0.831373)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
+bg_color = Color(0.95, 0.95, 0.9, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.3, 0.3, 0.3, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 4
 
-[sub_resource type="LabelSettings" id="LabelSettings_3m7nw"]
-shadow_size = 2
-shadow_color = Color(0, 0, 0, 0.85098)
+[sub_resource type="LabelSettings" id="LabelSettings_name"]
+font_color = Color(0.1, 0.1, 0.1, 1)
+outline_size = 1
+outline_color = Color(1, 1, 1, 0.5)
+shadow_color = Color(0, 0, 0, 0.5)
 
-[sub_resource type="LabelSettings" id="LabelSettings_pnb5n"]
-font_size = 12
-font_color = Color(0, 0, 0, 1)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cost"]
+bg_color = Color(0.2, 0.4, 0.8, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.1, 0.2, 0.5, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="LabelSettings" id="LabelSettings_cost"]
+font_size = 18
+outline_size = 1
 outline_color = Color(0, 0, 0, 1)
-shadow_size = 2
-shadow_color = Color(0.446777, 0.446777, 0.446777, 0.721569)
+shadow_color = Color(0, 0, 0, 0.8)
 
-[sub_resource type="LabelSettings" id="LabelSettings_3p273"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_image_bg"]
+bg_color = Color(0.85, 0.85, 0.8, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.5, 0.5, 0.5, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="LabelSettings" id="LabelSettings_rarity"]
 font_size = 12
-outline_color = Color(0.162066, 0.162066, 0.162066, 1)
-shadow_size = 2
-shadow_color = Color(0, 0, 0, 0.607843)
+font_color = Color(0.2, 0.2, 0.2, 1)
+outline_size = 1
+outline_color = Color(1, 1, 1, 0.3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_desc_bg"]
+bg_color = Color(0.9, 0.9, 0.85, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.6, 0.6, 0.6, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="LabelSettings" id="LabelSettings_description"]
+font_size = 11
+font_color = Color(0.1, 0.1, 0.1, 1)
+outline_size = 1
+outline_color = Color(1, 1, 1, 0.3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_attack"]
+bg_color = Color(0.8, 0.2, 0.2, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.1, 0.1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="LabelSettings" id="LabelSettings_attack"]
+font_size = 14
+outline_size = 1
+outline_color = Color(0, 0, 0, 1)
+shadow_color = Color(0, 0, 0, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health"]
+bg_color = Color(0.2, 0.8, 0.2, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.1, 0.5, 0.1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="LabelSettings" id="LabelSettings_health"]
+font_size = 14
+outline_size = 1
+outline_color = Color(0, 0, 0, 1)
+shadow_color = Color(0, 0, 0, 0.8)
 
 [node name="Card" type="Control"]
-custom_minimum_size = Vector2(200, 300)
+custom_minimum_size = Vector2(140, 200)
 layout_mode = 3
 anchors_preset = 0
-offset_right = 128.0
-offset_bottom = 192.0
+size_flags_horizontal = 0
+size_flags_vertical = 0
 script = ExtResource("1_pnb5n")
 
 [node name="Panel" type="Panel" parent="."]
-layout_mode = 0
-offset_right = 128.0
-offset_bottom = 192.0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_card")
 
-[node name="VBoxContainer" type="Control" parent="."]
-custom_minimum_size = Vector2(128, 192)
-anchors_preset = 0
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="CardNameLabel" type="Label" parent="VBoxContainer"]
-z_index = 1
+[node name="HeaderContainer" type="HBoxContainer" parent="VBoxContainer"]
 layout_mode = 2
-offset_left = -1.0
-offset_right = 102.0
-offset_bottom = 31.0
+size_flags_vertical = 0
+
+[node name="CardNameLabel" type="Label" parent="VBoxContainer/HeaderContainer"]
+custom_minimum_size = Vector2(32, 25)
+layout_mode = 2
+size_flags_horizontal = 3
 text = "Card Name"
-label_settings = SubResource("LabelSettings_h8wm0")
+label_settings = SubResource("LabelSettings_name")
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="CostPanel" type="Panel" parent="VBoxContainer/HeaderContainer"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_cost")
+
+[node name="CostLabel" type="Label" parent="VBoxContainer/HeaderContainer/CostPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "0"
+label_settings = SubResource("LabelSettings_cost")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CostLabel" type="Label" parent="VBoxContainer"]
-z_index = 1
+[node name="ImageContainer" type="Panel" parent="VBoxContainer"]
 layout_mode = 2
-offset_left = 110.0
-offset_top = 2.0
-offset_right = 120.0
-offset_bottom = 25.0
-text = "0"
-label_settings = SubResource("LabelSettings_3m7nw")
-
-[node name="CardImage" type="TextureRect" parent="VBoxContainer"]
-layout_mode = 2
-offset_right = 128.0
-offset_bottom = 192.0
 size_flags_vertical = 3
+size_flags_stretch_ratio = 2.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_image_bg")
+
+[node name="CardImage" type="TextureRect" parent="VBoxContainer/ImageContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
 texture = ExtResource("2_3p273")
-stretch_mode = 3
+expand_mode = 1
+stretch_mode = 5
 
 [node name="RarityLabel" type="Label" parent="VBoxContainer"]
-z_index = 1
+custom_minimum_size = Vector2(20, 12)
 layout_mode = 2
-offset_left = 3.0
-offset_top = 95.0
-offset_right = 125.0
-offset_bottom = 112.0
-text = "TEXT"
-label_settings = SubResource("LabelSettings_pnb5n")
-vertical_alignment = 2
+size_flags_vertical = 0
+text = "UNCOMMON"
+label_settings = SubResource("LabelSettings_rarity")
+horizontal_alignment = 1
+autowrap_mode = 1
 
-[node name="DescriptionLabel" type="Label" parent="VBoxContainer"]
-z_index = 1
+[node name="DescriptionContainer" type="Panel" parent="VBoxContainer"]
 layout_mode = 2
-offset_left = 2.0
-offset_top = 114.0
-offset_right = 125.0
-offset_bottom = 190.0
-text = "LIPO"
-label_settings = SubResource("LabelSettings_3p273")
-autowrap_mode = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_desc_bg")
+
+[node name="DescriptionLabel" type="Label" parent="VBoxContainer/DescriptionContainer"]
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Description goes here..."
+label_settings = SubResource("LabelSettings_description")
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+clip_text = true
+
+[node name="StatsContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="AttackPanel" type="Panel" parent="VBoxContainer/StatsContainer"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_attack")
+
+[node name="AttackLabel" type="Label" parent="VBoxContainer/StatsContainer/AttackPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "3"
+label_settings = SubResource("LabelSettings_attack")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Spacer" type="Control" parent="VBoxContainer/StatsContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HealthPanel" type="Panel" parent="VBoxContainer/StatsContainer"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_health")
+
+[node name="HealthLabel" type="Label" parent="VBoxContainer/StatsContainer/HealthPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "4"
+label_settings = SubResource("LabelSettings_health")
+horizontal_alignment = 1
+vertical_alignment = 1
